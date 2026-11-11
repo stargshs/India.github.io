@@ -77,6 +77,17 @@
             background: #f3d584;
             border-radius: 4px;
         }
+
+        #india-map-wrap { min-width: 0; }
+        #india-map { width: 100%; height: auto; min-height: 390px; }
+        #india-map .state-shape { fill: rgba(115, 52, 48, .55); stroke: rgba(243,213,132,.58); stroke-width: .85; vector-effect: non-scaling-stroke; cursor:pointer; transition: fill .2s, stroke .2s, filter .2s; }
+        #india-map .state-shape:hover { fill: rgba(191,119,63,.78); stroke: #fff0b8; stroke-width: 1.6; filter: drop-shadow(0 0 5px rgba(243,213,132,.45)); }
+        #india-map .state-shape.selected { fill: rgba(211,139,55,.92); stroke: #fff0b8; stroke-width: 2; filter: drop-shadow(0 0 8px rgba(243,213,132,.7)); }
+        #india-map .spot-marker { cursor:pointer; stroke:#16070a; stroke-width:1.5; transition:r .15s; }
+        #india-map .spot-marker:hover, #india-map .spot-marker.active { r:8; fill:#fff0b8; stroke:#8a0029; stroke-width:2; }
+        #india-map .map-label { fill:rgba(255,238,221,.78); font: 9px 'Plus Jakarta Sans',sans-serif; pointer-events:none; text-anchor:middle; }
+        .spot-row { border:1px solid rgba(243,213,132,.14); background:rgba(0,0,0,.22); transition:.2s; }
+        .spot-row:hover, .spot-row.active { border-color:rgba(243,213,132,.72); background:rgba(243,213,132,.09); transform:translateX(3px); }
     </style>
 </head>
 <body class="selection:bg-amber-400 selection:text-black">
@@ -131,6 +142,32 @@
             </div>
         </header>
 
+        <section id="india-explorer" class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-10">
+            <div class="mb-5 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                <div><p class="text-[10px] uppercase tracking-[0.35em] text-amber-400/70 font-bold mb-2">Interactive heritage atlas</p>
+                <h2 class="cinzel-font gold-gradient text-2xl sm:text-3xl font-black">EXPLORE INDIA BY STATE</h2>
+                <p class="text-amber-100/60 text-sm mt-2">Select any state or union territory to reveal its highlighted boundary and famous destinations.</p></div>
+                <div class="text-xs text-amber-300/60 uppercase tracking-widest">28 States · 8 Union Territories</div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-[1.35fr_0.85fr] gap-5 items-stretch">
+                <div class="avant-glass rounded-[2rem] p-3 sm:p-5 relative overflow-hidden">
+                    <div class="absolute top-5 left-6 z-10 text-[9px] tracking-[0.25em] uppercase text-amber-300/60">Bharat · State boundaries</div>
+                    <div id="india-map-wrap" class="relative w-full min-h-[390px] sm:min-h-[540px]">
+                        <div id="map-loading" class="absolute inset-0 z-10 flex items-center justify-center px-6 text-center text-amber-200/60 text-sm animate-pulse">Loading India map…</div>
+                        <svg id="india-map" role="img" aria-label="Interactive map of India's states and union territories" viewBox="0 0 850 650" class="block w-full h-auto max-h-[650px] overflow-visible"></svg>
+                    </div>
+                    <div class="flex flex-wrap gap-4 px-3 pb-2 text-[10px] uppercase tracking-widest text-amber-200/60"><span><i class="inline-block w-2 h-2 rounded-full bg-amber-300 mr-2"></i>Tourist spot</span><span><i class="inline-block w-2 h-2 rounded-full bg-rose-400 mr-2"></i>Selected region</span><span>Hover a region to identify it · Click to explore</span></div>
+                </div>
+                <aside class="avant-glass rounded-[2rem] p-5 sm:p-6 flex flex-col min-h-[390px]">
+                    <div class="flex items-center justify-between gap-3 mb-5"><span class="text-[10px] uppercase tracking-[0.25em] text-amber-400/70 font-bold">Destination panel</span><span id="spot-count" class="text-[10px] text-amber-200/50">Awaiting selection</span></div>
+                    <div id="region-placeholder" class="flex-1 flex flex-col items-center justify-center text-center py-10"><div class="text-5xl mb-5">🇮🇳</div><h3 class="cinzel-font text-xl gold-gradient font-bold">Choose a region</h3><p class="text-amber-100/50 text-sm mt-3 max-w-xs leading-relaxed">Click a state on the map or use the region selector above. Its top destinations will appear here.</p></div>
+                    <div id="region-spots" class="hidden"></div>
+                    <div id="spot-tooltip" class="hidden mt-auto pt-4 border-t border-amber-500/20"><p class="text-[9px] uppercase tracking-[0.25em] text-amber-400/70 mb-1">Selected destination</p><h4 id="spot-tooltip-title" class="text-lg cinzel-font gold-gradient font-bold"></h4><p id="spot-tooltip-desc" class="text-xs text-amber-100/60 mt-2 leading-relaxed"></p></div>
+                </aside>
+            </div>
+            <p class="text-[9px] text-amber-200/35 mt-3 text-center">Map boundaries are illustrative reference data. Tourist markers indicate destination locations approximately.</p>
+        </section>
+
         <main id="states-section" class="py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto flex-1 w-full">
             <div id="states-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             </div>
@@ -149,6 +186,141 @@
 
     </div>
 
+
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script>
+    // Three curated highlights for every state and union territory. Coordinates are approximate map pins.
+    const touristSpots = {
+      "Andhra Pradesh":[["Tirumala Venkateswara Temple","Major hilltop pilgrimage destination",13.683,79.347],["Araku Valley","Scenic Eastern Ghats valley and coffee country",18.327,82.877],["Borra Caves","Limestone caves in the Ananthagiri hills",18.280,83.039]],
+      "Arunachal Pradesh":[["Tawang Monastery","Historic Buddhist monastery in the Himalayas",27.586,91.859],["Sela Pass","High-altitude mountain pass and lake",27.510,92.100],["Ziro Valley","Picturesque valley known for Apatani culture",27.545,93.819]],
+      "Assam":[["Kaziranga National Park","World-famous home of the one-horned rhinoceros",26.577,93.171],["Kamakhya Temple","Historic Shakti Peetha on Nilachal Hill",26.167,91.705],["Majuli Island","River island with celebrated satras and culture",26.950,94.170]],
+      "Bihar":[["Mahabodhi Temple","UNESCO-listed Buddhist pilgrimage site",24.696,84.991],["Nalanda Mahavihara","Ruins of the ancient university",25.136,85.444],["Vikramshila University","Historic centre of Buddhist learning",25.331,87.285]],
+      "Chhattisgarh":[["Chitrakote Falls","Broad waterfall on the Indravati River",19.203,81.701],["Bhoramdeo Temple","Intricately carved historic temple complex",22.095,81.043],["Kanger Valley National Park","Forest landscapes, caves and waterfalls",18.793,81.900]],
+      "Goa":[["Basilica of Bom Jesus","UNESCO-listed landmark in Old Goa",15.500,73.911],["Dudhsagar Falls","Spectacular waterfall in the Western Ghats",15.314,74.314],["Fort Aguada","Coastal Portuguese-era fort",15.492,73.773]],
+      "Gujarat":[["Statue of Unity","Monument overlooking the Narmada",21.838,73.719],["Rann of Kutch","Vast seasonal white salt desert",23.829,69.529],["Somnath Temple","Historic temple on the Arabian Sea coast",20.888,70.401]],
+      "Haryana":[["Kurukshetra","Historic setting associated with the Mahabharata",29.969,76.878],["Sultanpur National Park","Wetland bird sanctuary near Gurugram",28.461,76.892],["Pinjore Gardens","Historic Mughal-style terraced gardens",30.798,76.918]],
+      "Himachal Pradesh":[["Shimla Ridge","Iconic mountain town promenade",31.104,77.173],["Manali","Himalayan valley town and mountain gateway",32.239,77.189],["Dharamshala & McLeod Ganj","Mountain destination with Tibetan heritage",32.242,76.321]],
+      "Jharkhand":[["Hundru Falls","Waterfall on the Subarnarekha River",23.447,85.672],["Baidyanath Dham","Important temple complex in Deoghar",24.492,86.699],["Netarhat","Hill station known for sunrise and sunset views",23.478,84.267]],
+      "Karnataka":[["Hampi","UNESCO-listed Vijayanagara-era ruins",15.335,76.460],["Mysore Palace","Landmark royal palace",12.305,76.655],["Jog Falls","Major waterfall in the Western Ghats",14.229,74.812]],
+      "Kerala":[["Alleppey Backwaters","Network of scenic canals and lagoons",9.498,76.338],["Munnar","Tea gardens and misty high ranges",10.089,77.060],["Fort Kochi","Historic waterfront and heritage quarter",9.966,76.242]],
+      "Madhya Pradesh":[["Khajuraho Temples","UNESCO-listed temple group",24.852,79.919],["Sanchi Stupa","Ancient Buddhist monument",23.479,77.739],["Kanha National Park","Renowned central Indian wildlife reserve",22.334,80.612]],
+      "Maharashtra":[["Ajanta Caves","Ancient Buddhist rock-cut cave monuments",20.552,75.703],["Ellora Caves","Remarkable multi-faith rock-cut complex",20.026,75.179],["Gateway of India","Iconic Mumbai waterfront monument",18.922,72.834]],
+      "Manipur":[["Loktak Lake","Famous lake with floating phumdis",24.550,93.800],["Kangla Fort","Historic seat of the Manipur kingdom",24.807,93.943],["Keibul Lamjao National Park","Floating national park and sangai habitat",24.507,93.790]],
+      "Meghalaya":[["Living Root Bridges","Living bridges grown by Khasi communities",25.238,91.601],["Nohkalikai Falls","Tall plunge waterfall near Cherrapunji",25.270,91.697],["Dawki & Umngot River","Clear river waters near the Bangladesh border",25.184,92.024]],
+      "Mizoram":[["Phawngpui (Blue Mountain)","Mizoram’s highest peak and nature reserve",22.676,93.037],["Reiek Tlang","Scenic hill and cultural village",23.684,92.590],["Vantawng Falls","One of the state’s best-known waterfalls",23.236,92.764]],
+      "Nagaland":[["Dzukou Valley","Highland valley known for seasonal flowers",25.570,94.080],["Kohima War Cemetery","Memorial to the Battle of Kohima",25.674,94.108],["Kisama Heritage Village","Main venue of the Hornbill Festival",25.620,94.116]],
+      "Odisha":[["Konark Sun Temple","UNESCO-listed 13th-century temple",19.887,86.094],["Jagannath Temple, Puri","Major pilgrimage site",19.804,85.818],["Chilika Lake","Large coastal lagoon and bird habitat",19.700,85.320]],
+      "Punjab":[["Golden Temple","The revered Harmandir Sahib in Amritsar",31.620,74.876],["Jallianwala Bagh","Historic memorial garden in Amritsar",31.620,74.881],["Wagah-Attari Border","Known for the daily flag-lowering ceremony",31.604,74.573]],
+      "Rajasthan":[["Amer Fort","Hilltop fort near Jaipur",26.985,75.851],["Jaisalmer Fort","Historic living fort in the Thar Desert",26.912,70.912],["City Palace, Udaipur","Historic palace overlooking Lake Pichola",24.576,73.683]],
+      "Sikkim":[["Tsomgo Lake","High-altitude glacial lake",27.374,88.764],["Rumtek Monastery","Important Tibetan Buddhist monastery",27.289,88.561],["Yumthang Valley","Alpine valley known for flowers and hot springs",27.812,88.702]],
+      "Tamil Nadu":[["Meenakshi Amman Temple","Historic temple complex in Madurai",9.919,78.119],["Brihadeeswarar Temple","UNESCO-listed Chola-era temple in Thanjavur",10.783,79.131],["Mahabalipuram Shore Temple","UNESCO-listed coastal temple",12.620,80.193]],
+      "Telangana":[["Charminar","Iconic monument in Hyderabad’s old city",17.361,78.474],["Golconda Fort","Historic fortress overlooking Hyderabad",17.383,78.401],["Ramappa Temple","UNESCO-listed Kakatiya-era temple",18.260,79.943]],
+      "Tripura":[["Ujjayanta Palace","Landmark royal palace in Agartala",23.836,91.279],["Neermahal","Water palace in Rudrasagar Lake",23.491,91.310],["Unakoti","Historic rock-cut sculptures and reliefs",24.326,92.050]],
+      "Uttar Pradesh":[["Taj Mahal","UNESCO-listed marble mausoleum in Agra",27.175,78.042],["Varanasi Ghats","Historic riverfront steps along the Ganga",25.307,83.010],["Fatehpur Sikri","Historic Mughal city and monuments",27.094,77.667]],
+      "Uttarakhand":[["Valley of Flowers","Himalayan national park famed for alpine blooms",30.728,79.605],["Rishikesh","Ganga-side town known for yoga and bridges",30.086,78.267],["Kedarnath Temple","High Himalayan pilgrimage destination",30.735,79.066]],
+      "West Bengal":[["Victoria Memorial","Landmark marble monument in Kolkata",22.545,88.342],["Darjeeling Himalayan Railway","UNESCO-listed mountain railway",27.041,88.266],["Sundarbans National Park","Mangrove forest and tiger habitat",21.949,88.898]],
+      "Andaman and Nicobar Islands":[["Cellular Jail","Historic memorial in Port Blair",11.674,92.747],["Radhanagar Beach","Well-known beach on Swaraj Dweep",11.984,92.953],["Ross Island","Historic island settlement near Port Blair",11.675,92.762]],
+      "Chandigarh":[["Rock Garden","Sculpture garden made from recycled materials",30.752,76.810],["Sukhna Lake","Popular urban lake and promenade",30.742,76.818],["Capitol Complex","Le Corbusier-designed UNESCO heritage complex",30.761,76.808]],
+      "Dadra and Nagar Haveli and Daman and Diu":[["Diu Fort","Portuguese-era fort by the Arabian Sea",20.714,70.988],["Jampore Beach","Quiet sandy beach in Daman",20.379,72.832],["Vanganga Lake Garden","Island garden in Silvassa",20.273,73.014]],
+      "Jammu and Kashmir":[["Dal Lake","Famous lake and houseboat destination in Srinagar",34.083,74.877],["Gulmarg","Mountain resort and meadow",34.048,74.380],["Pahalgam","Lidder Valley destination surrounded by mountains",34.016,75.315]],
+      "Ladakh":[["Pangong Tso","High-altitude lake with striking blue water",33.759,78.667],["Nubra Valley","High-altitude valley with dunes and monasteries",34.686,77.562],["Thiksey Monastery","Hilltop monastery near Leh",34.057,77.668]],
+      "Lakshadweep":[["Agatti Island","Island known for its lagoon and reef",10.854,72.186],["Bangaram Island","Small island with turquoise lagoon",10.943,72.288],["Kavaratti","Capital island with beaches and marine life",10.566,72.642]],
+      "Delhi (National Capital Territory)":[["Red Fort","UNESCO-listed Mughal fort complex",28.656,77.241],["Qutub Minar","UNESCO-listed medieval tower complex",28.524,77.185],["Humayun’s Tomb","UNESCO-listed garden tomb",28.593,77.250]],
+      "Puducherry":[["Promenade Beach","Seafront boulevard in the French Quarter",11.934,79.835],["Auroville","Experimental international township",12.006,79.810],["Basilica of the Sacred Heart","Gothic-style church in Puducherry",11.926,79.831]]
+    };
+
+    const mapAliases = {
+      "Delhi":"Delhi (National Capital Territory)", "NCT of Delhi":"Delhi (National Capital Territory)",
+      "Dadra and Nagar Haveli and Daman and Diu":"Dadra and Nagar Haveli and Daman and Diu",
+      "Dadra & Nagar Haveli and Daman & Diu":"Dadra and Nagar Haveli and Daman and Diu",
+      "Andaman & Nicobar Islands":"Andaman and Nicobar Islands", "Jammu & Kashmir":"Jammu and Kashmir",
+      "Pondicherry":"Puducherry", "Orissa":"Odisha", "Uttaranchal":"Uttarakhand"
+    };
+    const normRegion = v => String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/&/g,'and').replace(/[^a-z0-9]/gi,'').toLowerCase();
+    let mapFeatures = [], mapProjection, mapPath, mapSelected = '', activeSpotIndex = -1;
+
+    function featureRegion(feature) {
+      const p=feature.properties||{};
+      // GeoJSON providers use inconsistent property keys (and sometimes lowercase them).
+      // Inspect every textual property instead of assuming one schema.
+      const candidates=[p.shapeName,p.ST_NM,p.st_nm,p.NAME_1,p.name,p.NAME,p.state,p.State_Name,p.region,...Object.values(p)]
+        .filter(v=>typeof v==='string' && v.trim());
+      for (const raw of candidates) {
+        const clean=raw.trim();
+        const alias=mapAliases[clean]||clean;
+        const hit=regionsData.find(r=>normRegion(r.name)===normRegion(alias))
+          || regionsData.find(r=>normRegion(r.name)===normRegion(clean));
+        if(hit) return hit.name;
+        // Common GeoJSON naming variants.
+        const compact=normRegion(clean);
+        const variants={
+          'andamannicobar':'Andaman and Nicobar Islands',
+          'dadraandnagarhaveli':'Dadra and Nagar Haveli and Daman and Diu',
+          'damananddiu':'Dadra and Nagar Haveli and Daman and Diu',
+          'nctdelhi':'Delhi (National Capital Territory)',
+          'nationalcapitalterritoryofdelhi':'Delhi (National Capital Territory)',
+          'pondicherry':'Puducherry', 'orissa':'Odisha', 'uttaranchal':'Uttarakhand'
+        };
+        if(variants[compact]) return variants[compact];
+      }
+      return null;
+    }
+    function selectRegionOnMap(name, updateDropdown=true) {
+      const region=regionsData.find(r=>r.name===name); if(!region) return;
+      mapSelected=name; activeSpotIndex=-1;
+      if(updateDropdown){ selectedStateQuery=name; document.getElementById('state-select').value=name; currentFilter='all';
+        ['all','State','Union Territory'].forEach(t=>{const b=document.getElementById('filter-'+t); if(b)b.className=t==='all'?'px-4 py-2 rounded-lg text-xs font-bold bg-amber-400 text-black shadow transition-all':'px-4 py-2 rounded-lg text-xs font-bold text-amber-200 hover:bg-amber-500/10 transition-all';}); }
+      renderRegions(); renderSelectedSpots();
+      d3.select('#india-map').selectAll('.state-shape').classed('selected',d=>d.__region===name);
+      drawSelectedMarkers();
+    }
+    function renderSelectedSpots(){
+      const region=regionsData.find(r=>r.name===mapSelected), spots=touristSpots[mapSelected]||[];
+      const placeholder=document.getElementById('region-placeholder'), panel=document.getElementById('region-spots');
+      if(!region){placeholder.classList.remove('hidden');panel.classList.add('hidden');document.getElementById('spot-count').textContent='Awaiting selection';return;}
+      placeholder.classList.add('hidden');panel.classList.remove('hidden');
+      document.getElementById('spot-count').textContent=spots.length+' DESTINATIONS';
+      panel.innerHTML=`<div class="mb-4"><h3 class="cinzel-font gold-gradient text-2xl font-black">${region.name}</h3><p class="text-[10px] uppercase tracking-[.2em] text-amber-300/55 mt-1">${region.type} · ${region.capital}</p><p class="text-xs text-amber-100/55 mt-3 leading-relaxed">${region.desc}</p></div><div class="space-y-2">${spots.map((spot,i)=>`<button type="button" class="spot-row w-full rounded-xl p-3 text-left flex items-start gap-3 ${activeSpotIndex===i?'active':''}" data-spot-index="${i}"><span class="w-7 h-7 shrink-0 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-300 flex items-center justify-center text-xs font-bold">${i+1}</span><span class="min-w-0"><span class="block text-sm text-amber-100 font-bold">${spot[0]}</span><span class="block text-[10px] text-amber-100/45 mt-1">${spot[1]}</span></span><i class="fa-solid fa-location-dot text-amber-400/70 ml-auto mt-1"></i></button>`).join('')}</div>`;
+      panel.querySelectorAll('[data-spot-index]').forEach(btn=>btn.addEventListener('click',()=>showSpot(Number(btn.dataset.spotIndex))));
+      document.getElementById('spot-tooltip').classList.add('hidden');
+    }
+    function showSpot(i){
+      const spots=touristSpots[mapSelected]||[], spot=spots[i]; if(!spot)return; activeSpotIndex=i;
+      document.querySelectorAll('.spot-row').forEach((el,j)=>el.classList.toggle('active',j===i));
+      document.getElementById('spot-tooltip-title').textContent=spot[0];document.getElementById('spot-tooltip-desc').textContent=spot[1];document.getElementById('spot-tooltip').classList.remove('hidden');
+      document.querySelectorAll('.spot-marker').forEach((el,j)=>el.classList.toggle('active',j===i));
+    }
+    function drawSelectedMarkers(){
+      const svg=d3.select('#india-map');svg.selectAll('.spot-layer').remove(); if(!mapSelected||!mapProjection)return;
+      const spots=touristSpots[mapSelected]||[], layer=svg.append('g').attr('class','spot-layer');
+      spots.forEach((spot,i)=>{const xy=mapProjection([spot[3],spot[2]]);if(!xy)return;
+        layer.append('circle').attr('class','spot-marker').attr('cx',xy[0]).attr('cy',xy[1]).attr('r',6).attr('fill','#f3d584').on('mouseenter',()=>{document.getElementById('spot-tooltip-title').textContent=spot[0];document.getElementById('spot-tooltip-desc').textContent=spot[1];document.getElementById('spot-tooltip').classList.remove('hidden');}).on('mouseleave',()=>{if(activeSpotIndex<0)document.getElementById('spot-tooltip').classList.add('hidden');}).on('click',()=>showSpot(i));
+        layer.append('text').attr('class','map-label').attr('x',xy[0]).attr('y',xy[1]-10).text(String(i+1));
+      });
+    }
+    async function initIndiaMap(){
+      const svg=d3.select('#india-map'), loading=document.getElementById('map-loading');
+      if(!window.d3){loading.textContent='Map library could not load. Check your internet connection, then refresh.';loading.classList.remove('animate-pulse');return;}
+      const urls=[
+        'https://cdn.jsdelivr.net/gh/udit-001/india-maps-data@2884453/geojson/india.geojson',
+        'https://raw.githubusercontent.com/iamaanahmad/GeoJson-of-Indian-States/main/indian-states.geojson'
+      ];
+      let data=null;for(const url of urls){try{const r=await fetch(url);if(r.ok){data=await r.json();if(data.features?.length)break;}}catch(e){}}
+      if(!data?.features?.length){loading.textContent='Map boundaries could not be loaded. Check your internet connection, then refresh.';loading.classList.remove('animate-pulse');return;}
+      mapFeatures=data.features.map(f=>({...f,__region:featureRegion(f)})).filter(f=>f.__region);
+      if(!mapFeatures.length){loading.textContent='Map data loaded, but its state names could not be matched. Please use the region selector above.';loading.classList.remove('animate-pulse');return;}
+      const fc={type:'FeatureCollection',features:mapFeatures};
+      mapProjection=d3.geoMercator().fitExtent([[24,35],[826,620]],fc);mapPath=d3.geoPath(mapProjection);
+      svg.selectAll('path.state-shape').data(mapFeatures).join('path').attr('class','state-shape').attr('d',mapPath).attr('data-region',d=>d.__region)
+        .on('mouseenter',function(event,d){showMapTip(event,d.__region);}).on('mousemove',function(event,d){showMapTip(event,d.__region);})
+        .on('mouseleave',()=>hideMapTip()).on('click',(event,d)=>selectRegionOnMap(d.__region));
+      loading.remove();
+      if(mapSelected)selectRegionOnMap(mapSelected,false);
+    }
+    function showMapTip(event,name){let tip=document.getElementById('map-hover-tip');if(!tip){tip=document.createElement('div');tip.id='map-hover-tip';tip.className='fixed z-50 pointer-events-none px-3 py-2 rounded-lg bg-black/90 border border-amber-400/50 text-amber-100 text-xs shadow-xl';document.body.appendChild(tip);}tip.textContent=name;tip.style.left=(event.clientX+14)+'px';tip.style.top=(event.clientY+14)+'px';}
+    function hideMapTip(){const t=document.getElementById('map-hover-tip');if(t)t.remove();}
+    document.addEventListener('DOMContentLoaded',()=>{initIndiaMap();});
+    </script>
     <script>
         const regionsData = [
             {
@@ -586,8 +758,13 @@
 
         function filterType(type) {
             currentFilter = type;
-            selectedStateQuery = '';
+            selectedStateQuery = ''; mapSelected = ''; activeSpotIndex = -1;
             document.getElementById('state-select').value = '';
+            if (window.d3) { d3.select('#india-map').selectAll('.state-shape').classed('selected', false); d3.select('#india-map').selectAll('.spot-layer').remove(); }
+            if (document.getElementById('region-spots')) document.getElementById('region-spots').classList.add('hidden');
+            if (document.getElementById('region-placeholder')) document.getElementById('region-placeholder').classList.remove('hidden');
+            if (document.getElementById('spot-tooltip')) document.getElementById('spot-tooltip').classList.add('hidden');
+            if (document.getElementById('spot-count')) document.getElementById('spot-count').textContent='Awaiting selection';
             
             ['all', 'State', 'Union Territory'].forEach(t => {
                 const btn = document.getElementById(`filter-${t}`);
@@ -605,7 +782,8 @@
         const stateSelect = document.getElementById('state-select');
         stateSelect.addEventListener('change', (e) => {
             selectedStateQuery = e.target.value;
-            renderRegions();
+            if (selectedStateQuery && typeof selectRegionOnMap === 'function') selectRegionOnMap(selectedStateQuery, false);
+            else { mapSelected = ''; renderSelectedSpots(); d3.select('#india-map').selectAll('.state-shape').classed('selected', false); d3.select('#india-map').selectAll('.spot-layer').remove(); renderRegions(); }
 
             if (selectedStateQuery) {
                 const statesSection = document.getElementById('states-section');
